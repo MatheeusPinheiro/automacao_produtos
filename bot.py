@@ -19,8 +19,15 @@ import pandas as pd
 class Bot(WebBot):
 
     produtos = pd.read_excel('buscas.xlsx')
+    list_products = []
 
-    def search_google_shopping(self, product, min_value, max_value):
+    def search_google_shopping(self, product, name_banid, min_price, max_price):
+
+        product = product.lower()
+        list_term_product = product.split(' ')
+
+        name_banid = name_banid.lower()
+        list_name_banid = name_banid.split(' ')
 
         self.find_element('//*[@id="APjFqb"]', By.XPATH).send_keys(str(product)) 
         self.wait(1000)
@@ -28,18 +35,49 @@ class Bot(WebBot):
 
         menus_google = self.find_element('crJ18e', By.CLASS_NAME)
         
-        if menus_google.is_displayed(): 
+        if menus_google: 
             shopping_link = menus_google.find_element(By.LINK_TEXT, 'Shopping')
             if shopping_link:
                 shopping_link.click()
 
         self.wait(2000)
-    
 
-        price_product =  self.find_elements('kHxwFf', By.CLASS_NAME)
 
-        for price in price_product:
-            print(price.text)
+        result_list = self.find_elements('i0X6df', By.CLASS_NAME)
+
+        for product in result_list:
+
+            name = product.find_element(By.CLASS_NAME, 'tAxDx').text
+            name = name.lower()
+         
+            # Analisa se tem algum nome banido
+            is_a_term_banid = False
+            for letter in list_name_banid:
+                if letter in name:
+                    is_a_term_banid = True
+
+            # Analisar se ele tem todos os termos do produto
+            is_all_term_product = True
+            for letter in list_term_product:
+                if letter in name:
+                    is_all_term_product = False
+
+            if not is_a_term_banid  and is_all_term_product:   
+                price =  product.find_element(By.CLASS_NAME, 'a8Pemb').text
+                price = price.replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
+                price = float(price)
+
+                min_price = float(min_price)
+                max_price = float(max_price)
+
+                if min_price <= price  <= max_price:
+                    #Get Link
+                    element_referenc = product.find_element(By.CLASS_NAME, 'bONr3b')
+                    element_dad = element_referenc.find_element(By.XPATH, '..')
+                    link = element_dad.get_attribute('href')
+
+                    print(name, price , link)
+
     
     
     
@@ -77,7 +115,9 @@ class Bot(WebBot):
 
         # Implement here your logic...
         
-        self.search_google_shopping('iphone 11', '2000', '3000')
+        self.search_google_shopping('iphone 12 64 gb', 'mini watch', 3000, 3500)
+
+        print('Tamanho da lista ',len(self.list_products))
 
         # Wait 3 seconds before closing
         self.wait(3000)
