@@ -7,10 +7,10 @@ from botcity.maestro import *
 # Disable errors if we are not connected to Maestro
 BotMaestroSDK.RAISE_NOT_CONNECTED = False
 
-#Importação das opções do navegador
+# Importação das opções do navegador
 from botcity.web.browsers.chrome import default_options
 
-#atualizar o chromedriver automaticamente
+# Atualizar o chromedriver automaticamente
 from webdriver_manager.chrome import ChromeDriverManager
 
 
@@ -19,22 +19,23 @@ import pandas as pd
 class Bot(WebBot):
 
     produtos = pd.read_excel('buscas.xlsx')
-    list_products = []
 
-    def search_google_shopping(self, product, name_banid, min_price, max_price):
+    def procurar_google_shopping(self, produto, termos_banidos, preco_minimo, preco_maximo):
+        # Tratar os valores que vieram da tabela
+        produto = produto.lower()
+        termos_banidos = termos_banidos.lower()
+        lista_termos_banidos = termos_banidos.split(" ")
+        lista_termos_produto = produto.split(" ")
+        preco_maximo = float(preco_maximo)
+        preco_minimo = float(preco_minimo)
 
-        product = product.lower()
-        list_term_product = product.split(' ')
-
-        name_banid = name_banid.lower()
-        list_name_banid = name_banid.split(' ')
-
-        self.find_element('//*[@id="APjFqb"]', By.XPATH).send_keys(str(product)) 
+        # Pesquisar o produto no google
+        self.find_element('//*[@id="APjFqb"]', By.XPATH).send_keys(str(produto)) 
         self.wait(1000)
         self.enter()
 
-        menus_google = self.find_element('crJ18e', By.CLASS_NAME)
-        
+        # Clicar na aba shopping
+        menus_google = self.find_element('crJ18e', By.CLASS_NAME)        
         if menus_google: 
             shopping_link = menus_google.find_element(By.LINK_TEXT, 'Shopping')
             if shopping_link:
@@ -42,50 +43,57 @@ class Bot(WebBot):
 
         self.wait(2000)
 
+        #Armazena a lista de ofertas 
+        lista_ofertas = []
 
-        result_list = self.find_elements('i0X6df', By.CLASS_NAME)
+        # Pegar a lista de resultados da busca no google shopping
+        lista_resultados = self.find_elements('i0X6df', By.CLASS_NAME)
+        for product in lista_resultados:
 
-        for product in result_list:
+            nome = product.find_element(By.CLASS_NAME, 'tAxDx').text
+            nome = nome.lower()
 
-            name = product.find_element(By.CLASS_NAME, 'tAxDx').text
-            name = name.lower()
-         
-            # Analisa se tem algum nome banido
-            is_a_term_banid = False
-            for letter in list_name_banid:
-                if letter in name:
-                    is_a_term_banid = True
+            # verificacao do nome - se no nome tem algum termo banido
+            tem_termos_banidos = False
+            for palavra in lista_termos_banidos:
+                if palavra in nome:
+                    tem_termos_banidos = True
 
-            # Analisar se ele tem todos os termos do produto
-            is_all_term_product = True
-            for letter in list_term_product:
-                if letter in name:
-                    is_all_term_product = False
+       
+            # verificar se no nome tem todos os termos do nome do produto
+            tem_todos_termos_produto = True
+            for palavra in lista_termos_produto:
+                if palavra not in nome:
+                    tem_todos_termos_produto = False
 
-            if not is_a_term_banid  and is_all_term_product:   
-                price =  product.find_element(By.CLASS_NAME, 'a8Pemb').text
-                price = price.replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
-                price = float(price)
+            if not tem_termos_banidos and tem_todos_termos_produto: # verificando o nome
+                try:   
+                    preco =  product.find_element(By.CLASS_NAME, 'a8Pemb').text
+                    preco = preco.replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
+                    preco = float(preco)
 
-                min_price = float(min_price)
-                max_price = float(max_price)
+                    if preco_minimo <= preco <= preco_maximo:
+                        #Pegar o Link
+                        elemento_link = product.find_element(By.CLASS_NAME, 'bONr3b')
+                        elemento_pai = elemento_link.find_element(By.XPATH, '..')
+                        link = elemento_pai.get_attribute('href')
 
-                if min_price <= price  <= max_price:
-                    #Get Link
-                    element_referenc = product.find_element(By.CLASS_NAME, 'bONr3b')
-                    element_dad = element_referenc.find_element(By.XPATH, '..')
-                    link = element_dad.get_attribute('href')
+                        # Adicionando uma tubpla de produtos na lista de ofertas 
+                        lista_ofertas.append((nome,preco,link))
 
-                    print(name, price , link)
-
+                except:
+                    continue
+            
+        return lista_ofertas
+ 
     
-    
-    
-    def search_buscape_shopping(self):
+    def procurar_buscape_shopping(self):
         pass
 
-    def send_email():
+    def enviar_email():
         pass
+
+
 
     def action(self, execution):
         # Runner passes the server url, the id of the task being executed,
@@ -115,9 +123,9 @@ class Bot(WebBot):
 
         # Implement here your logic...
         
-        self.search_google_shopping('iphone 12 64 gb', 'mini watch', 3000, 3500)
+        lista_ofertas_google_shopping = self.procurar_google_shopping('iphone 12 64 gb', 'watch min', 3000, 3500)
 
-        print('Tamanho da lista ',len(self.list_products))
+        print(lista_ofertas_google_shopping)
 
         # Wait 3 seconds before closing
         self.wait(3000)
