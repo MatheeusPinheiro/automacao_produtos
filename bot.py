@@ -28,9 +28,10 @@ class Bot(WebBot):
         lista_termos_produto = produto.split(" ")
         preco_maximo = float(preco_maximo)
         preco_minimo = float(preco_minimo)
+        self.wait(2000)
 
         # Pesquisar o produto no google
-        self.find_element('//*[@id="APjFqb"]', By.XPATH).send_keys(str(produto)) 
+        self.find_element('APjFqb',By.ID).send_keys(str(produto)) 
         self.wait(1000)
         self.enter()
 
@@ -47,49 +48,50 @@ class Bot(WebBot):
         lista_ofertas = []
 
         # Pegar a lista de resultados da busca no google shopping
+        self.wait(10000)
         lista_resultados = self.find_elements('i0X6df', By.CLASS_NAME)
-        for product in lista_resultados:
+        
+        if lista_resultados is not None:
+        
+            for product in lista_resultados:
 
-            nome = product.find_element(By.CLASS_NAME, 'tAxDx').text
-            nome = nome.lower()
+                nome = product.find_element(By.CLASS_NAME, 'tAxDx').text
+                nome = nome.lower()
 
-            # verificacao do nome - se no nome tem algum termo banido
-            tem_termos_banidos = False
-            for palavra in lista_termos_banidos:
-                if palavra in nome:
-                    tem_termos_banidos = True
+                # verificacao do nome - se no nome tem algum termo banido
+                tem_termos_banidos = False
+                for palavra in lista_termos_banidos:
+                    if palavra in nome:
+                        tem_termos_banidos = True
 
-       
-            # verificar se no nome tem todos os termos do nome do produto
-            tem_todos_termos_produto = True
-            for palavra in lista_termos_produto:
-                if palavra not in nome:
-                    tem_todos_termos_produto = False
+        
+                # verificar se no nome tem todos os termos do nome do produto
+                tem_todos_termos_produto = True
+                for palavra in lista_termos_produto:
+                    if palavra not in nome:
+                        tem_todos_termos_produto = False
 
-            if not tem_termos_banidos and tem_todos_termos_produto: # verificando o nome
-                try:   
-                    preco =  product.find_element(By.CLASS_NAME, 'a8Pemb').text
-                    preco = preco.replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
-                    preco = float(preco)
+                if not tem_termos_banidos and tem_todos_termos_produto: # verificando o nome
+                    try:   
+                        preco =  product.find_element(By.CLASS_NAME, 'a8Pemb').text
+                        preco = preco.replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
+                        preco = float(preco)
 
-                    if preco_minimo <= preco <= preco_maximo:
-                        #Pegar o Link
-                        elemento_link = product.find_element(By.CLASS_NAME, 'bONr3b')
-                        elemento_pai = elemento_link.find_element(By.XPATH, '..')
-                        link = elemento_pai.get_attribute('href')
+                        if preco_minimo <= preco <= preco_maximo:
+                            #Pegar o Link
+                            elemento_link = product.find_element(By.CLASS_NAME, 'bONr3b')
+                            elemento_pai = elemento_link.find_element(By.XPATH, '..')
+                            link = elemento_pai.get_attribute('href')
 
-                        # Adicionando uma tubpla de produtos na lista de ofertas 
-                        lista_ofertas.append((nome,preco,link))
+                            # Adicionando uma tubpla de produtos na lista de ofertas 
+                            lista_ofertas.append((nome,preco,link))
 
-                except:
-                    continue
-            
+                    except:
+                        continue
+                
+                self.navigate_to('https://www.google.com/')
         return lista_ofertas
  
-    
-    def procurar_buscape_shopping(self):
-        pass
-
     def enviar_email():
         pass
 
@@ -116,16 +118,25 @@ class Bot(WebBot):
         self.driver_path = ChromeDriverManager().install()
 
         # Opens the BotCity website.
-        self.browse("https://google.com.br")
+        self.browse("https://www.google.com/")
 
         # Maximize Window
         self.maximize_window()
 
-        # Implement here your logic...
+        # # Implement here your logic...
+        for linha in self.produtos.index:
+            produto = self.produtos.loc[linha, 'Nome']
+            termos_baniodos = self.produtos.loc[linha, 'Termos banidos']
+            preco_minimo = self.produtos.loc[linha, 'Preço mínimo']
+            preco_maximo = self.produtos.loc[linha, 'Preço máximo']
         
-        lista_ofertas_google_shopping = self.procurar_google_shopping('iphone 12 64 gb', 'watch min', 3000, 3500)
-
-        print(lista_ofertas_google_shopping)
+            lista_ofertas_google_shopping = self.procurar_google_shopping(produto, termos_baniodos, preco_minimo, preco_maximo)
+            
+            if lista_ofertas_google_shopping:
+                tabela_google_shopping = pd.DataFrame(lista_ofertas_google_shopping, columns=['Produto', 'Preco', 'Link'])
+                print(tabela_google_shopping)
+            break
+       
 
         # Wait 3 seconds before closing
         self.wait(3000)
